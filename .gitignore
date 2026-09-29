@@ -1,0 +1,11 @@
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+*.pcap
+*.pcapng
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store
