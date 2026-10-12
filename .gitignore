@@ -1,7 +1,3 @@
-data/raw/*
-!data/raw/.gitkeep
-data/processed/*
-!data/processed/.gitkeep
 *.pcapng
 __pycache__/
 *.pyc
