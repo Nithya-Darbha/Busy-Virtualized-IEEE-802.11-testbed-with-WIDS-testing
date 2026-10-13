@@ -1,16 +1,13 @@
-#!/usr/bin/env python3
 """Rule-based detector: threshold on the deauth count (fit on train only)."""
 import sys, os, csv
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
-from split import load, split
+from split import load, folds
 
 FEATS = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "data", "processed", "features.csv")
 OUT = sys.argv[2] if len(sys.argv) > 2 else os.path.join(ROOT, "results")
-RATES = ["none", "low", "moderate", "high"]
-LOADS = ["low", "moderate", "high"]
 
 def predict(rows, T):
     return [1 if int(r["n_deauth"]) > T else 0 for r in rows]
@@ -26,52 +23,37 @@ def confusion(rows, pred):
     return tp, fp, tn, fn
 
 def metrics(tp, fp, tn, fn):
-    div = lambda a, b: a / b if b else None
-    return dict(tp=tp, fp=fp, tn=tn, fn=fn,
-        precision=div(tp, tp + fp), recall=div(tp, tp + fn),
+    div = lambda a, b: a / b if b else 0.0
+    return dict(precision=div(tp, tp + fp), recall=div(tp, tp + fn),
         f1=div(2 * tp, 2 * tp + fp + fn), fpr=div(fp, fp + tn),
         accuracy=div(tp + tn, tp + fp + tn + fn))
 
 def fit(train):
-    sweep = []
+    best_T, best_f1 = 0, -1.0
     for T in range(0, max(int(r["n_deauth"]) for r in train) + 1):
-        sweep.append(dict(threshold=T, **metrics(*confusion(train, predict(train, T)))))
-    best = max(sweep, key=lambda s: (s["f1"] or 0.0, s["threshold"]))
-    return best["threshold"], sweep
-
-def fmt(v):
-    return "" if v is None else (f"{v:.4f}" if isinstance(v, float) else v)
-
-def write(path, rows):
-    with open(path, "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=list(rows[0].keys())); w.writeheader()
-        w.writerows({k: fmt(v) for k, v in r.items()} for r in rows)
+        f1 = metrics(*confusion(train, predict(train, T)))["f1"]
+        if f1 >= best_f1: best_T, best_f1 = T, f1
+    return best_T
 
 def main():
-    train, test = split(load(FEATS))
-    T, sweep = fit(train)
-    pred = predict(test, T)
-    print(f"train={len(train)}  test={len(test)}  threshold: attack if n_deauth > {T}")
-
-    summary = []
-    def add(scope, rate, load_, rows, p):
-        m = metrics(*confusion(rows, p)); summary.append(dict(scope=scope, rate=rate, load=load_, **m))
-        print(f"  {scope:7} {rate:9} {load_:9} " + "  ".join(
-            f"{k}={'-' if m[k] is None else format(m[k], '.3f')}" for k in ("precision", "recall", "f1", "fpr", "accuracy")))
-    add("train", "all", "all", train, predict(train, T))
-    add("test", "all", "all", test, pred)
-    for rate in RATES:
-        for load_ in LOADS:
-            idx = [i for i, r in enumerate(test) if r["rate"] == rate and r["load"] == load_]
-            if idx: add("test", rate, load_, [test[i] for i in idx], [pred[i] for i in idx])
+    rows = load(FEATS)
+    out, tested, pred = [], [], []
+    print(f"[rule] {len(rows)} windows, leave-one-capture-out")
+    for cell, train, test in folds(rows):
+        T = fit(train)
+        p = predict(test, T)
+        print(f"  held out {cell:28} threshold: attack if n_deauth > {T}")
+        tested += test; pred += p
+        out += [dict(cell=r["cell"], rate=r["rate"], load=r["load"], win=r["win"],
+                     label=r["label"], threshold=T, pred_rule=q) for r, q in zip(test, p)]
+    m = metrics(*confusion(tested, pred))
+    print(f" P={m['precision']:.3f} R={m['recall']:.3f} F1={m['f1']:.3f} FPR={m['fpr']:.3f} Acc={m['accuracy']:.3f}")
 
     os.makedirs(OUT, exist_ok=True)
-    write(os.path.join(OUT, "rule_based_threshold_sweep.csv"), sweep)
-    write(os.path.join(OUT, "rule_based_summary.csv"), summary)
-    write(os.path.join(OUT, "rule_based_predictions.csv"),
-        [dict(cell=r["cell"], rate=r["rate"], load=r["load"], win=r["win"],
-              n_deauth=r["n_deauth"], label=r["label"], pred=p) for r, p in zip(test, pred)])
-    print(f"wrote sweep, summary and predictions -> {OUT}")
+    path = os.path.join(OUT, "rule_based_predictions.csv")
+    with open(path, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(out[0].keys())); w.writeheader(); w.writerows(out)
+    print(f"out-of-fold predictions --> {path}")
 
 if __name__ == "__main__":
     main()
