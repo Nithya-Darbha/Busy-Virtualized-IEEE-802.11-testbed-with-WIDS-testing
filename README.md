@@ -12,6 +12,16 @@ virtualised IEEE 802.11 networks. Course project, II2202 (KTH).
 - data/      raw captures + processed sets (gitignored)
 - results/   figures and tables
 
+## Environment
+Kali (ARM64) VM, mac80211_hwsim software radios. Attacks run only against the
+local emulated network.
+```bash
+sudo apt update
+sudo apt install -y
+sudo apt install -y hostapd wpasupplicant iw tcpdump tshark rfkill network-manager python3-scapy python3-sklearn python3-pandas python3-numpy python3-matplotlib
+```
+The virtual Wi-Fi radios (`mac80211_hwsim`) are built into Linux, `testbed/up.sh` brings them up automatically.
+
 ## Reproduce
 ```bash
 sudo bash testbed/up.sh # bring up the virtual networks(2 AP's , clients, monitor) 
@@ -23,9 +33,3 @@ python3 eval/metrics.py # RQ2 plots + detector comparisions
 python3 eval/rq1_analysis.py # matched volume feature analysis for RQ1
 
 ```
-
-
-
-## Environment
-Kali (ARM64) VM, mac80211_hwsim software radios. Attacks run only against the
-local emulated network.
