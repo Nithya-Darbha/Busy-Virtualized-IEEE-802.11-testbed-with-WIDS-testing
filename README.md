@@ -18,7 +18,8 @@ local emulated network.
 ```bash
 sudo apt update
 sudo apt install -y
-sudo apt install -y hostapd wpasupplicant iw tcpdump tshark rfkill network-manager python3-scapy python3-sklearn python3-pandas python3-numpy python3-matplotlib
+sudo apt install -y hostapd wpasupplicant iw tcpdump tshark rfkill network-manager
+xsudo apt install -y python3-scapy python3-sklearn python3-pandas python3-numpy python3-matplotlib
 ```
 The virtual Wi-Fi radios (`mac80211_hwsim`) are built into Linux, `testbed/up.sh` brings them up automatically.
 
